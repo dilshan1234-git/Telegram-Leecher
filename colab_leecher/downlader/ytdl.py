@@ -1,4 +1,4 @@
-# copyright 2023 © Xron Trix | https://github.com/Xrontrix10
+
 
 
 import logging
@@ -6,10 +6,10 @@ import yt_dlp
 from asyncio import sleep
 from threading import Thread
 from os import makedirs, path as ospath
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from colab_leecher.utility.handler import cancelTask
 from colab_leecher.utility.variables import YTDL, MSG, Messages, Paths
 from colab_leecher.utility.helper import getTime, keyboard, sizeUnit, status_bar, sysINFO
-
 
 async def YTDL_Status(link, num):
     global Messages, YTDL
@@ -24,7 +24,7 @@ async def YTDL_Status(link, num):
             sys_text = sysINFO()
             message = YTDL.header
             try:
-                await MSG.status_msg.edit_text(text=Messages.task_msg + Messages.status_head + message + sys_text, reply_markup=keyboard())
+                await MSG.status_msg.edit_text(text=Messages.task_msg + Messages.status_head + message + sys_text, reply_markup=keyboard(YTDL.formats))
             except Exception:
                 pass
         else:
@@ -36,13 +36,13 @@ async def YTDL_Status(link, num):
                     eta=YTDL.eta,
                     done=YTDL.done,
                     left=YTDL.left,
+                    resolution=YTDL.resolution,
                     engine="Xr-YtDL 🏮",
                 )
             except Exception:
                 pass
 
         await sleep(2.5)
-
 
 class MyLogger:
     def __init__(self):
@@ -64,7 +64,6 @@ class MyLogger:
         # print(msg)
         pass
 
-
 def YouTubeDL(url):
     global YTDL
 
@@ -77,6 +76,8 @@ def YouTubeDL(url):
             percent = d.get("downloaded_percent", 0)
             speed = d.get("speed", "N/A")
             eta = d.get("eta", 0)
+            resolution = d.get("resolution", "N/A")  # Extract resolution information
+            formats = d.get("formats", [])  # Extract available formats
 
             if total_bytes:
                 percent = round((float(dl_bytes) * 100 / float(total_bytes)), 2)
@@ -87,19 +88,15 @@ def YouTubeDL(url):
             YTDL.eta = getTime(eta) if eta else "N/A"
             YTDL.done = sizeUnit(dl_bytes) if dl_bytes else "N/A"
             YTDL.left = sizeUnit(total_bytes) if total_bytes else "N/A"
-
-        elif d["status"] == "downloading fragment":
-            # log_str = d["message"]
-            # print(log_str, end="")
-            pass
-        else:
-            logging.info(d)
+            YTDL.resolution = resolution  # Store resolution information
+            YTDL.formats = formats  # Store available formats
 
     ydl_opts = {
         "format": "best",
         "allow_multiple_video_streams": True,
         "allow_multiple_audio_streams": True,
         "writethumbnail": True,
+        "--concurrent-fragments": 4 , # Set the maximum number of concurrent fragments
         "allow_playlist_files": True,
         "overwrites": True,
         "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
@@ -121,21 +118,36 @@ def YouTubeDL(url):
                     makedirs(ospath.join(Paths.down_path, playlist_name))
                 ydl_opts["outtmpl"] = {
                     "default": f"{Paths.down_path}/{playlist_name}/%(title)s.%(ext)s",
-                    "thumbnail": f"{Paths.thumbnail_ytdl}/%(title)s.%(ext)s",
+                    "thumbnail": f"{Paths.thumbnail_ytdl}/%(id)s.%(ext)s",
                 }
                 for entry in info_dict["entries"]:
                     video_url = entry["webpage_url"]
-                    ydl.download([video_url])
+                    try:
+                        ydl.download([video_url])
+                    except yt_dlp.utils.DownloadError as e:
+                        if e.exc_info[0] == 36:
+                            ydl_opts["outtmpl"] = {
+                                "default": f"{Paths.down_path}/%(id)s.%(ext)s",
+                                "thumbnail": f"{Paths.thumbnail_ytdl}/%(id)s.%(ext)s",
+                            }
+                            ydl.download([video_url])
             else:
                 YTDL.header = ""
                 ydl_opts["outtmpl"] = {
-                    "default": f"{Paths.down_path}/%(title)s.%(ext)s",
-                    "thumbnail": f"{Paths.thumbnail_ytdl}/%(title)s.%(ext)s",
+                    "default": f"{Paths.down_path}/%(id)s.%(ext)s",
+                    "thumbnail": f"{Paths.thumbnail_ytdl}/%(id)s.%(ext)s",
                 }
-                ydl.download([url])
+                try:
+                    ydl.download([url])
+                except yt_dlp.utils.DownloadError as e:
+                    if e.exc_info[0] == 36:
+                        ydl_opts["outtmpl"] = {
+                            "default": f"{Paths.down_path}/%(id)s.%(ext)s",
+                            "thumbnail": f"{Paths.thumbnail_ytdl}/%(id)s.%(ext)s",
+                        }
+                        ydl.download([url])
         except Exception as e:
             logging.error(f"YTDL ERROR: {e}")
-
 
 async def get_YT_Name(link):
     with yt_dlp.YoutubeDL({"logger": MyLogger()}) as ydl:
