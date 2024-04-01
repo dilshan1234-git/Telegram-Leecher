@@ -92,7 +92,7 @@ def YouTubeDL(url):
             YTDL.formats = formats  # Store available formats
 
     ydl_opts = {
-        "format": "bv*+ba/b",
+        "format": "1080",
         "allow_multiple_video_streams": True,
         "allow_multiple_audio_streams": True,
         "writethumbnail": True,
