@@ -54,5 +54,5 @@ async def pro_for_mega(stream, process):
         eta,
         downloaded_size,
         total_size,
-        "Meg 😡",
+        "Meg 😁",
     )
