@@ -37,7 +37,7 @@ async def YTDL_Status(link, num):
                     done=YTDL.done,
                     left=YTDL.left,
                     resolution=YTDL.resolution,
-                    engine="Xr-YtDL 🎸",
+                    engine="Xr-YtDL 🏮",
                 )
             except Exception:
                 pass
